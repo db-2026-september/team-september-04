@@ -61,6 +61,17 @@ CREATE TYPE fitness_center_team4.membership_status AS ENUM (
     'cancelled'
 );
 
+CREATE TABLE classes (
+    class_id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    class_name VARCHAR(100) NOT NULL,
+    trainer_id INTEGER NOT NULL,
+    schedule_datetime TIMESTAMP NOT NULL,
+
+    CONSTRAINT fk_classes_trainer
+        FOREIGN KEY (trainer_id)
+        REFERENCES trainers (trainer_id)
+);
+
 CREATE TABLE fitness_center_team4.membership_plans (
     plan_id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     plan_name VARCHAR(50) NOT NULL UNIQUE,
