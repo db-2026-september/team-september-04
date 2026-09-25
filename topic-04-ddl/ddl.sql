@@ -61,17 +61,6 @@ CREATE TYPE fitness_center_team4.membership_status AS ENUM (
     'cancelled'
 );
 
-CREATE TABLE classes (
-    class_id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    class_name VARCHAR(100) NOT NULL,
-    trainer_id INTEGER NOT NULL,
-    schedule_datetime TIMESTAMP NOT NULL,
-
-    CONSTRAINT fk_classes_trainer
-        FOREIGN KEY (trainer_id)
-        REFERENCES trainers (trainer_id)
-);
-
 CREATE TABLE fitness_center_team4.membership_plans (
     plan_id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     plan_name VARCHAR(50) NOT NULL UNIQUE,
@@ -108,6 +97,20 @@ CREATE INDEX idx_memberships_member_id
 
 CREATE INDEX idx_memberships_plan_id
     ON fitness_center_team4.memberships(plan_id);
+
+CREATE TABLE fitness_center_team4.classes (
+    class_id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    class_name VARCHAR(100) NOT NULL,
+    trainer_id INTEGER NOT NULL,
+    schedule_datetime TIMESTAMP NOT NULL,
+
+    CONSTRAINT fk_classes_trainer
+        FOREIGN KEY (trainer_id)
+        REFERENCES fitness_center_team4.trainers(trainer_id)
+);
+
+CREATE INDEX idx_classes_trainer_id
+    ON fitness_center_team4.classes(trainer_id);
 
 CREATE TABLE fitness_center_team4.attendance (
     attendance_id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
