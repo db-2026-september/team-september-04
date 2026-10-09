@@ -532,3 +532,228 @@ FROM fitness_center_team4.memberships AS ms
 JOIN fitness_center_team4.members AS m ON m.member_id = ms.member_id
 JOIN fitness_center_team4.membership_plans AS p ON p.plan_id = ms.plan_id
 ORDER BY ms.membership_id;
+
+-- ================================================================
+-- [Yehor] Таблиця classes: вставка, невалідні INSERT, UPDATE, DELETE
+-- ================================================================
+-- Порядок: classes виконується ПІСЛЯ вставки trainers [Oksana],
+-- бо classes посилається на trainers через FOREIGN KEY.
+--
+-- trainer_id НЕ прописаний числами: він шукається за email
+-- (UNIQUE у trainers). Так скрипт не залежить від того, які id
+-- згенерує IDENTITY, а якщо email зміниться, INSERT впаде з помилкою
+-- NOT NULL, а не прив'яже заняття до чужого тренера.
+-- ================================================================
+
+
+-- ================================================
+-- [Yehor] classes: вставка валідних даних (12 записів)
+-- ================================================
+-- Обмеження UNIQUE (trainer_id, schedule_datetime): один тренер
+-- не може вести два заняття в один і той самий час.
+-- Різні тренери можуть мати заняття в один час (напр. 2026-10-12 10:00).
+-- Деякі тренери мають по 2 заняття в різний час (зв'язок one-to-many).
+INSERT INTO fitness_center_team4.classes (class_name, trainer_id, schedule_datetime)
+VALUES
+  -- Андрій Мельник: силові напрямки
+  ('Силове тренування',
+   (SELECT trainer_id FROM fitness_center_team4.trainers WHERE email = 'a.melnyk@example.com'),
+   '2026-10-12 10:00:00'),
+  ('Кросфіт',
+   (SELECT trainer_id FROM fitness_center_team4.trainers WHERE email = 'a.melnyk@example.com'),
+   '2026-10-14 18:00:00'),
+
+  -- Ірина Ткаченко: йога
+  ('Йога для початківців',
+   (SELECT trainer_id FROM fitness_center_team4.trainers WHERE email = 'i.tkachenko@example.com'),
+   '2026-10-12 10:00:00'),
+  ('Хатха-йога',
+   (SELECT trainer_id FROM fitness_center_team4.trainers WHERE email = 'i.tkachenko@example.com'),
+   '2026-10-13 19:00:00'),
+
+  -- Владислав Кравченко: бокс
+  ('Бокс',
+   (SELECT trainer_id FROM fitness_center_team4.trainers WHERE email = 'v.kravchenko@example.com'),
+   '2026-10-13 20:00:00'),
+
+  -- Марія Олійник: пілатес
+  ('Пілатес',
+   (SELECT trainer_id FROM fitness_center_team4.trainers WHERE email = 'm.oliinyk@example.com'),
+   '2026-10-15 09:00:00'),
+
+  -- Богдан Лисенко: спінінг
+  ('Спінінг',
+   (SELECT trainer_id FROM fitness_center_team4.trainers WHERE email = 'b.lysenko@example.com'),
+   '2026-10-15 19:30:00'),
+
+  -- Катерина Бойко: зумба
+  ('Зумба',
+   (SELECT trainer_id FROM fitness_center_team4.trainers WHERE email = 'k.boiko@example.com'),
+   '2026-10-16 18:00:00'),
+
+  -- Дмитро Савченко: TRX
+  ('TRX-тренування',
+   (SELECT trainer_id FROM fitness_center_team4.trainers WHERE email = 'd.savchenko@example.com'),
+   '2026-10-17 11:00:00'),
+
+  -- Олена Романюк (тепер Тарасюк): стретчинг
+  ('Стретчинг',
+   (SELECT trainer_id FROM fitness_center_team4.trainers WHERE email = 'o.romaniuk@example.com'),
+   '2026-10-17 12:30:00'),
+
+  -- Наталія Ковальчук: аеробіка
+  ('Аеробіка',
+   (SELECT trainer_id FROM fitness_center_team4.trainers WHERE email = 'n.kovalchuk@example.com'),
+   '2026-10-18 10:00:00'),
+
+  -- Сергій Поліщук: кардіо
+  ('Кардіо-інтервали',
+   (SELECT trainer_id FROM fitness_center_team4.trainers WHERE email = 's.polishchuk@example.com'),
+   '2026-10-18 17:00:00');
+
+
+-- ================================================
+-- [Yehor] Невалідні INSERT (кожен має давати помилку)
+-- Запускати по одному, прибравши -- перед рядками
+-- ================================================
+
+-- 1. Дублікат: той самий тренер у той самий час
+-- Очікується: duplicate key value violates unique constraint "uq_classes_trainer_schedule"
+-- INSERT INTO fitness_center_team4.classes (class_name, trainer_id, schedule_datetime)
+-- VALUES (
+--   'Дублікат заняття',
+--   (SELECT trainer_id FROM fitness_center_team4.trainers WHERE email = 'a.melnyk@example.com'),
+--   '2026-10-12 10:00:00');
+
+-- 2. Неіснуючий тренер (trainer_id, якого немає в trainers)
+-- Очікується: violates foreign key constraint "fk_classes_trainer"
+-- INSERT INTO fitness_center_team4.classes (class_name, trainer_id, schedule_datetime)
+-- VALUES ('Заняття без тренера', 99999, '2026-10-20 10:00:00');
+
+-- 3. Відсутня назва заняття
+-- Очікується: null value in column "class_name" violates not-null constraint
+-- INSERT INTO fitness_center_team4.classes (class_name, trainer_id, schedule_datetime)
+-- VALUES (
+--   NULL,
+--   (SELECT trainer_id FROM fitness_center_team4.trainers WHERE email = 'a.melnyk@example.com'),
+--   '2026-10-20 10:00:00');
+
+-- 4. Відсутній тренер
+-- Очікується: null value in column "trainer_id" violates not-null constraint
+-- INSERT INTO fitness_center_team4.classes (class_name, trainer_id, schedule_datetime)
+-- VALUES ('Заняття без тренера', NULL, '2026-10-20 10:00:00');
+
+-- 5. Відсутні дата й час заняття
+-- Очікується: null value in column "schedule_datetime" violates not-null constraint
+-- INSERT INTO fitness_center_team4.classes (class_name, trainer_id, schedule_datetime)
+-- VALUES (
+--   'Заняття без часу',
+--   (SELECT trainer_id FROM fitness_center_team4.trainers WHERE email = 'a.melnyk@example.com'),
+--   NULL);
+
+-- 6. Назва довша за 100 символів
+-- Очікується: value too long for type character varying(100)
+-- INSERT INTO fitness_center_team4.classes (class_name, trainer_id, schedule_datetime)
+-- VALUES (
+--   repeat('Я', 101),
+--   (SELECT trainer_id FROM fitness_center_team4.trainers WHERE email = 'a.melnyk@example.com'),
+--   '2026-10-20 10:00:00');
+
+-- 7. Ручне значення для class_id (GENERATED ALWAYS AS IDENTITY)
+-- Очікується: cannot insert a non-DEFAULT value into column "class_id"
+-- INSERT INTO fitness_center_team4.classes (class_id, class_name, trainer_id, schedule_datetime)
+-- VALUES (
+--   1000,
+--   'Заняття з ручним id',
+--   (SELECT trainer_id FROM fitness_center_team4.trainers WHERE email = 'a.melnyk@example.com'),
+--   '2026-10-20 10:00:00');
+
+
+-- ================================================
+-- [Yehor] UPDATE: перенесення та зміна занять
+-- ================================================
+
+-- Перенести "Бокс" Владислава Кравченка на інший час.
+-- Умова за назвою і тренером, щоб змінився лише один рядок.
+UPDATE fitness_center_team4.classes
+SET schedule_datetime = '2026-10-13 21:00:00'
+WHERE class_name = 'Бокс'
+  AND trainer_id = (SELECT trainer_id FROM fitness_center_team4.trainers
+                    WHERE email = 'v.kravchenko@example.com')
+RETURNING class_id, class_name, schedule_datetime;
+
+-- Перейменувати "Зумба" на "Зумба фітнес".
+UPDATE fitness_center_team4.classes
+SET class_name = 'Зумба фітнес'
+WHERE class_name = 'Зумба'
+  AND trainer_id = (SELECT trainer_id FROM fitness_center_team4.trainers
+                    WHERE email = 'k.boiko@example.com')
+RETURNING class_id, class_name, trainer_id;
+
+-- Замінити тренера: "Аеробіку" замість Наталії Ковальчук тепер веде Марія Олійник.
+-- Новий час Марії (2026-10-18 10:00) вільний, тому UNIQUE не порушується.
+UPDATE fitness_center_team4.classes
+SET trainer_id = (SELECT trainer_id FROM fitness_center_team4.trainers
+                  WHERE email = 'm.oliinyk@example.com')
+WHERE class_name = 'Аеробіка'
+  AND trainer_id = (SELECT trainer_id FROM fitness_center_team4.trainers
+                    WHERE email = 'n.kovalchuk@example.com')
+RETURNING class_id, class_name, trainer_id;
+
+-- Невалідний UPDATE: перенос на час, коли тренер уже зайнятий
+-- (Андрій Мельник о 2026-10-12 10:00 веде "Силове тренування").
+-- Очікується: duplicate key value violates unique constraint "uq_classes_trainer_schedule"
+-- UPDATE fitness_center_team4.classes
+-- SET schedule_datetime = '2026-10-12 10:00:00'
+-- WHERE class_name = 'Кросфіт';
+
+
+-- ================================================
+-- [Yehor] DELETE: видалення тестового заняття
+-- ================================================
+-- Реальні заняття, на які вже є записи в attendance, видаляти не можна:
+-- це зламає історію відвідувань (FOREIGN KEY fk_attendance_class).
+-- DELETE доречний лише для помилково створених занять без відвідувань.
+
+-- Створюємо тестове заняття, яке не має зв'язків з attendance
+INSERT INTO fitness_center_team4.classes (class_name, trainer_id, schedule_datetime)
+VALUES (
+  'Тестове заняття',
+  (SELECT trainer_id FROM fitness_center_team4.trainers WHERE email = 'r.moroz@example.com'),
+  '2026-12-31 23:00:00');
+
+-- Видаляємо його; RETURNING показує, що саме видалено
+DELETE FROM fitness_center_team4.classes
+WHERE class_name = 'Тестове заняття'
+  AND schedule_datetime = '2026-12-31 23:00:00'
+RETURNING class_id, class_name, trainer_id;
+
+-- Перевірка: має повернути 0 рядків
+SELECT * FROM fitness_center_team4.classes
+WHERE class_name = 'Тестове заняття';
+
+-- Заняття, на яке є записи в attendance, видалити НЕ можна.
+-- Очікується (після того як Vasyl додасть дані в attendance):
+-- violates foreign key constraint "fk_attendance_class" on table "attendance"
+-- DELETE FROM fitness_center_team4.classes WHERE class_name = 'Силове тренування';
+
+-- Тренера, у якого є заняття, видалити НЕ можна.
+-- Очікується: violates foreign key constraint "fk_classes_trainer" on table "classes"
+-- DELETE FROM fitness_center_team4.trainers WHERE email = 'a.melnyk@example.com';
+
+
+-- ================================================
+-- [Yehor] Перевірка результату
+-- ================================================
+-- Очікується: 12 занять
+SELECT COUNT(*) AS classes_count
+FROM fitness_center_team4.classes;
+
+-- Заняття з іменами тренерів
+SELECT c.class_id,
+       c.class_name,
+       t.first_name || ' ' || t.last_name AS trainer_name,
+       c.schedule_datetime
+FROM fitness_center_team4.classes AS c
+JOIN fitness_center_team4.trainers AS t ON t.trainer_id = c.trainer_id
+ORDER BY c.schedule_datetime, c.class_id;
