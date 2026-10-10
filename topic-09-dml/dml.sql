@@ -757,3 +757,247 @@ SELECT c.class_id,
 FROM fitness_center_team4.classes AS c
 JOIN fitness_center_team4.trainers AS t ON t.trainer_id = c.trainer_id
 ORDER BY c.schedule_datetime, c.class_id;
+
+
+-- ================================================================
+-- SQL DML (TOPIC 09) - Fitness Center Management, Team 4
+-- [Vasyl] Таблиця attendance
+-- ================================================================
+-- Один рядок attendance = фактичний прихід клієнта на одне заняття.
+-- Це вигадані навчальні відвідування за 12-18 жовтня 2026 року,
+-- тобто модель стану після цих занять, а не бронювання майбутніх місць.
+-- Розклад трактуємо як час Europe/Kyiv; для цих дат зазначено +03:00.
+--
+-- member_id знаходимо за UNIQUE email клієнта.
+-- class_id знаходимо за email тренера та часом заняття:
+-- UNIQUE (trainer_id, schedule_datetime) гарантує один збіг.
+-- attendance_id не вказуємо: його створює GENERATED ALWAYS AS IDENTITY.
+-- Якщо потрібного клієнта або заняття немає, підзапит поверне NULL,
+-- і NOT NULL зупинить вставку, замість прив'язування до випадкового ID.
+--
+-- У прикладах дати відвідувань входять у строки абонементів клієнтів.
+-- Самі FOREIGN KEY attendance не перевіряють чинність абонемента.
+--
+-- Основний INSERT пропускає вже наявні пари (member_id, class_id).
+-- Після успішного запуску можна повторно запускати ЦЕЙ блок.
+-- Інші блоки спільного файла можуть не підтримувати повторний запуск.
+-- BEGIN / COMMIT об'єднують зміни attendance в одну транзакцію.
+-- Невалідні приклади в кінці закоментовано та винесено за COMMIT.
+-- ================================================================
+
+BEGIN;
+
+-- ================================================
+-- [Vasyl] INSERT: 10 відвідувань
+-- ================================================
+-- Є кілька клієнтів на одному занятті та кілька занять одного клієнта.
+-- Одна й та сама пара клієнт + заняття не повторюється.
+INSERT INTO fitness_center_team4.attendance (member_id, class_id, checked_in_at)
+VALUES
+  -- 1. Олександр Коваленко: силове тренування, початок о 10:00.
+  ((SELECT member_id FROM fitness_center_team4.members WHERE email = 'o.kovalenko@example.com'),
+   (SELECT class_id FROM fitness_center_team4.classes
+    WHERE trainer_id = (SELECT trainer_id FROM fitness_center_team4.trainers WHERE email = 'a.melnyk@example.com')
+      AND schedule_datetime = TIMESTAMP '2026-10-12 10:00:00'),
+   TIMESTAMPTZ '2026-10-12 09:53:00+03:00'),
+
+  -- 2. Дмитро Ткаченко: те саме силове тренування.
+  ((SELECT member_id FROM fitness_center_team4.members WHERE email = 'd.tkachenko@domain.com'),
+   (SELECT class_id FROM fitness_center_team4.classes
+    WHERE trainer_id = (SELECT trainer_id FROM fitness_center_team4.trainers WHERE email = 'a.melnyk@example.com')
+      AND schedule_datetime = TIMESTAMP '2026-10-12 10:00:00'),
+   TIMESTAMPTZ '2026-10-12 09:56:00+03:00'),
+
+  -- 3. Марія Мельник: йога для початківців, початок о 10:00.
+  ((SELECT member_id FROM fitness_center_team4.members WHERE email = 'm.melnyk@example.com'),
+   (SELECT class_id FROM fitness_center_team4.classes
+    WHERE trainer_id = (SELECT trainer_id FROM fitness_center_team4.trainers WHERE email = 'i.tkachenko@example.com')
+      AND schedule_datetime = TIMESTAMP '2026-10-12 10:00:00'),
+   TIMESTAMPTZ '2026-10-12 09:55:00+03:00'),
+
+  -- 4. Сергій Поліщук: ранкова йога до завершення абонемента 15 жовтня.
+  ((SELECT member_id FROM fitness_center_team4.members WHERE email = 's.polishchuk@domain.net'),
+   (SELECT class_id FROM fitness_center_team4.classes
+    WHERE trainer_id = (SELECT trainer_id FROM fitness_center_team4.trainers WHERE email = 'i.tkachenko@example.com')
+      AND schedule_datetime = TIMESTAMP '2026-10-12 10:00:00'),
+   TIMESTAMPTZ '2026-10-12 09:57:00+03:00'),
+
+  -- 5. Ірина Бойко: хатха-йога, початок о 19:00.
+  ((SELECT member_id FROM fitness_center_team4.members WHERE email = 'i.boyko@example.com'),
+   (SELECT class_id FROM fitness_center_team4.classes
+    WHERE trainer_id = (SELECT trainer_id FROM fitness_center_team4.trainers WHERE email = 'i.tkachenko@example.com')
+      AND schedule_datetime = TIMESTAMP '2026-10-13 19:00:00'),
+   TIMESTAMPTZ '2026-10-13 18:52:00+03:00'),
+
+  -- 6. Олександр Коваленко: бокс ПІСЛЯ перенесення з 20:00 на 21:00.
+  ((SELECT member_id FROM fitness_center_team4.members WHERE email = 'o.kovalenko@example.com'),
+   (SELECT class_id FROM fitness_center_team4.classes
+    WHERE trainer_id = (SELECT trainer_id FROM fitness_center_team4.trainers WHERE email = 'v.kravchenko@example.com')
+      AND schedule_datetime = TIMESTAMP '2026-10-13 21:00:00'),
+   TIMESTAMPTZ '2026-10-13 20:55:00+03:00'),
+
+  -- 7. Юлія Руденко: пілатес, початок о 09:00.
+  ((SELECT member_id FROM fitness_center_team4.members WHERE email = 'y.rudenko@domain.com'),
+   (SELECT class_id FROM fitness_center_team4.classes
+    WHERE trainer_id = (SELECT trainer_id FROM fitness_center_team4.trainers WHERE email = 'm.oliinyk@example.com')
+      AND schedule_datetime = TIMESTAMP '2026-10-15 09:00:00'),
+   TIMESTAMPTZ '2026-10-15 08:57:00+03:00'),
+
+  -- 8. Марія Мельник: перейменоване заняття "Зумба фітнес", о 18:00.
+  ((SELECT member_id FROM fitness_center_team4.members WHERE email = 'm.melnyk@example.com'),
+   (SELECT class_id FROM fitness_center_team4.classes
+    WHERE trainer_id = (SELECT trainer_id FROM fitness_center_team4.trainers WHERE email = 'k.boiko@example.com')
+      AND schedule_datetime = TIMESTAMP '2026-10-16 18:00:00'),
+   TIMESTAMPTZ '2026-10-16 17:54:00+03:00'),
+
+  -- 9. Дмитро Ткаченко: TRX-тренування, початок о 11:00.
+  ((SELECT member_id FROM fitness_center_team4.members WHERE email = 'd.tkachenko@domain.com'),
+   (SELECT class_id FROM fitness_center_team4.classes
+    WHERE trainer_id = (SELECT trainer_id FROM fitness_center_team4.trainers WHERE email = 'd.savchenko@example.com')
+      AND schedule_datetime = TIMESTAMP '2026-10-17 11:00:00'),
+   TIMESTAMPTZ '2026-10-17 10:55:00+03:00'),
+
+  -- 10. Ірина Бойко: аеробіка, яку після заміни веде Марія Олійник.
+  ((SELECT member_id FROM fitness_center_team4.members WHERE email = 'i.boyko@example.com'),
+   (SELECT class_id FROM fitness_center_team4.classes
+    WHERE trainer_id = (SELECT trainer_id FROM fitness_center_team4.trainers WHERE email = 'm.oliinyk@example.com')
+      AND schedule_datetime = TIMESTAMP '2026-10-18 10:00:00'),
+   TIMESTAMPTZ '2026-10-18 09:52:00+03:00')
+ON CONFLICT (member_id, class_id) DO NOTHING;
+
+
+-- ================================================
+-- [Vasyl] UPDATE: виправлення помилки в часі приходу
+-- ================================================
+-- Адміністратор уточнив: Олександр прийшов о 09:51, а не о 09:53.
+-- Умова містить конкретного клієнта, заняття та початковий час.
+-- Повторний запуск не змінює вже виправлений час.
+UPDATE fitness_center_team4.attendance
+SET checked_in_at = TIMESTAMPTZ '2026-10-12 09:51:00+03:00'
+WHERE member_id = (SELECT member_id FROM fitness_center_team4.members
+                   WHERE email = 'o.kovalenko@example.com')
+  AND class_id = (SELECT class_id FROM fitness_center_team4.classes
+                  WHERE trainer_id = (SELECT trainer_id FROM fitness_center_team4.trainers
+                                       WHERE email = 'a.melnyk@example.com')
+                    AND schedule_datetime = TIMESTAMP '2026-10-12 10:00:00')
+  AND checked_in_at = TIMESTAMPTZ '2026-10-12 09:53:00+03:00'
+RETURNING attendance_id, member_id, class_id, checked_in_at;
+
+
+-- ================================================
+-- [Vasyl] DELETE: видалення помилкового відвідування
+-- ================================================
+-- Історію справжніх відвідувань зберігаємо. DELETE доречний,
+-- коли адміністратор помилково відмітив людину, яка не приходила.
+-- Додаємо окремий, 11-й запис: Юлію помилково відмітили на силовому.
+-- Цієї пари немає серед 10 основних записів.
+-- Навмисно без ON CONFLICT: якщо така пара вже існує, INSERT перерве
+-- транзакцію, тому наступний DELETE не видалить наявне відвідування.
+INSERT INTO fitness_center_team4.attendance (member_id, class_id, checked_in_at)
+VALUES (
+  (SELECT member_id FROM fitness_center_team4.members WHERE email = 'y.rudenko@domain.com'),
+  (SELECT class_id FROM fitness_center_team4.classes
+   WHERE trainer_id = (SELECT trainer_id FROM fitness_center_team4.trainers WHERE email = 'a.melnyk@example.com')
+     AND schedule_datetime = TIMESTAMP '2026-10-12 10:00:00'),
+  TIMESTAMPTZ '2026-10-12 09:50:00+03:00');
+
+DELETE FROM fitness_center_team4.attendance
+WHERE member_id = (SELECT member_id FROM fitness_center_team4.members
+                   WHERE email = 'y.rudenko@domain.com')
+  AND class_id = (SELECT class_id FROM fitness_center_team4.classes
+                  WHERE trainer_id = (SELECT trainer_id FROM fitness_center_team4.trainers
+                                       WHERE email = 'a.melnyk@example.com')
+                    AND schedule_datetime = TIMESTAMP '2026-10-12 10:00:00')
+  AND checked_in_at = TIMESTAMPTZ '2026-10-12 09:50:00+03:00'
+RETURNING attendance_id, member_id, class_id, checked_in_at;
+
+COMMIT;
+
+
+-- ================================================
+-- [Vasyl] Перевірка результату
+-- ================================================
+-- Якщо attendance спочатку була порожня, очікується 10 записів.
+-- Якщо були інші відвідування, загальна кількість може бути більшою.
+SELECT COUNT(*) AS attendance_count
+FROM fitness_center_team4.attendance;
+
+-- Імена клієнтів, назви занять і час приходу за київським часом.
+SELECT a.attendance_id,
+       m.first_name || ' ' || m.last_name AS member_name,
+       c.class_name,
+       c.schedule_datetime,
+       a.checked_in_at AT TIME ZONE 'Europe/Kyiv' AS checked_in_at_kyiv
+FROM fitness_center_team4.attendance AS a
+JOIN fitness_center_team4.members AS m ON m.member_id = a.member_id
+JOIN fitness_center_team4.classes AS c ON c.class_id = a.class_id
+ORDER BY c.schedule_datetime, a.attendance_id;
+
+
+-- ================================================
+-- [Vasyl] Невалідні INSERT: перевірки обмежень
+-- ================================================
+-- Ці приклади НЕ виконуються разом з основним скриптом.
+-- Після його успішного запуску виділяти по ОДНОМУ прикладу,
+-- прибирати -- перед SQL і виконувати окремо. Кожен має дати помилку.
+-- Якщо SQL-редактор залишає транзакцію в стані помилки, виконати ROLLBACK.
+
+-- 1. Повтор тієї самої пари member_id + class_id.
+-- Очікується: unique_violation, constraint "uq_attendance_member_class".
+-- INSERT INTO fitness_center_team4.attendance (member_id, class_id, checked_in_at)
+-- SELECT member_id, class_id, checked_in_at
+-- FROM fitness_center_team4.attendance
+-- ORDER BY attendance_id
+-- LIMIT 1;
+
+-- 2. Неіснуючий клієнт: ID на одиницю більший за поточний максимум.
+-- Очікується: foreign_key_violation, constraint "fk_attendance_member".
+-- INSERT INTO fitness_center_team4.attendance (member_id, class_id, checked_in_at)
+-- SELECT (SELECT MAX(member_id) + 1 FROM fitness_center_team4.members),
+--        class_id, checked_in_at
+-- FROM fitness_center_team4.attendance
+-- ORDER BY attendance_id
+-- LIMIT 1;
+
+-- 3. Неіснуюче заняття: ID на одиницю більший за поточний максимум.
+-- Очікується: foreign_key_violation, constraint "fk_attendance_class".
+-- INSERT INTO fitness_center_team4.attendance (member_id, class_id, checked_in_at)
+-- SELECT member_id,
+--        (SELECT MAX(class_id) + 1 FROM fitness_center_team4.classes),
+--        checked_in_at
+-- FROM fitness_center_team4.attendance
+-- ORDER BY attendance_id
+-- LIMIT 1;
+
+-- 4. Відсутній клієнт.
+-- Очікується: not_null_violation у колонці "member_id".
+-- INSERT INTO fitness_center_team4.attendance (member_id, class_id, checked_in_at)
+-- SELECT NULL, class_id, checked_in_at
+-- FROM fitness_center_team4.attendance
+-- ORDER BY attendance_id
+-- LIMIT 1;
+
+-- 5. Відсутнє заняття.
+-- Очікується: not_null_violation у колонці "class_id".
+-- INSERT INTO fitness_center_team4.attendance (member_id, class_id, checked_in_at)
+-- SELECT member_id, NULL, checked_in_at
+-- FROM fitness_center_team4.attendance
+-- ORDER BY attendance_id
+-- LIMIT 1;
+
+-- 6. Відсутній час приходу.
+-- Очікується: not_null_violation у колонці "checked_in_at".
+-- INSERT INTO fitness_center_team4.attendance (member_id, class_id, checked_in_at)
+-- SELECT member_id, class_id, NULL
+-- FROM fitness_center_team4.attendance
+-- ORDER BY attendance_id
+-- LIMIT 1;
+
+-- 7. Спроба вручну вказати attendance_id замість автоматичної генерації.
+-- Очікується: generated_always, cannot insert a non-DEFAULT value
+-- into column "attendance_id".
+-- INSERT INTO fitness_center_team4.attendance (attendance_id, member_id, class_id, checked_in_at)
+-- SELECT 1000, member_id, class_id, checked_in_at
+-- FROM fitness_center_team4.attendance
+-- ORDER BY attendance_id
+-- LIMIT 1;
