@@ -309,7 +309,7 @@ WITH CHECK OPTION;
 CREATE VIEW fitness_center_team4.trainers_hired_after_2022 AS 
 SELECT *
 FROM fitness_center_team4.trainers
-WHERE hire_date >= DATE '2023-01-01'
+WHERE hire_date >= DATE '2023-01-01';
 
 -- =====================================================
 -- VIEW 2: Список телефонів тренерів
@@ -333,7 +333,7 @@ FROM fitness_center_team4.trainers;
 CREATE VIEW fitness_center_team4.trainers_without_phone AS 
 SELECT first_name, last_name, email
 FROM fitness_center_team4.trainers
-WHERE phone IS NULL
+WHERE phone IS NULL;
 
 -- =====================================================
 -- VIEW 4: Розклад занять тренерів
@@ -347,7 +347,7 @@ CREATE VIEW fitness_center_team4.trainer_class_schedule AS
 SELECT t.first_name, t.last_name, c.class_name, c.schedule_datetime
 FROM fitness_center_team4.trainers AS t
 JOIN fitness_center_team4.classes AS c
-ON t.trainer_id = c.trainer_id
+ON t.trainer_id = c.trainer_id;
 
 -- =====================================================
 -- VIEW 5: Тренери, які проводять заняття
@@ -369,7 +369,7 @@ WHERE EXISTS (
   SELECT 1 
   FROM fitness_center_team4.classes as c
   WHERE c.trainer_id = t.trainer_id
-  )
+  );
 
 -- =====================================================
 -- VIEW 6: Загальний список контактів тренерів та учасників
@@ -392,7 +392,7 @@ SELECT m.first_name, m.last_name, m.email, 'member' as person_type
 FROM fitness_center_team4.members as m
 UNION
 SELECT t.first_name, t.last_name, t.email, 'trainer' as person_type 
-FROM fitness_center_team4.trainers as t
+FROM fitness_center_team4.trainers as t;
 
 
 -- =====================================================
@@ -410,7 +410,7 @@ FROM fitness_center_team4.trainers as t
 CREATE VIEW fitness_center_team4.trainer_contacts AS
 SELECT first_name, last_name, email 
 FROM fitness_center_team4.fitness_center_contacts
-WHERE person_type = 'trainer'
+WHERE person_type = 'trainer';
 
 
 -- =====================================================
@@ -429,7 +429,7 @@ WHERE person_type = 'trainer'
 CREATE VIEW fitness_center_team4.trainers_hired_since_2023 AS
 SELECT * FROM fitness_center_team4.trainers
 WHERE hire_date >= DATE '2023-01-01'
-WITH CHECK OPTION
+WITH CHECK OPTION;
 
 
 -- =====================================================
