@@ -284,3 +284,87 @@ SELECT
 -- DROP OWNED BY fc_membership_analyst, fc_membership_manager;
 -- DROP ROLE IF EXISTS fc_membership_analyst;
 -- DROP ROLE IF EXISTS fc_membership_manager;
+
+
+-- ================================================================
+-- [Boris] Ролі для користувачів для роботи з клієнтами
+-- ================================================================
+
+-- ================================================================
+-- 1. СТВОРЕННЯ РОЛЕЙ ТА НАДАННЯ ПРИВІЛЕЇВ (ROLES & PRIVILEGES)
+-- ================================================================
+
+-- ----------------------------------------------------------------
+-- Роль: member_reader
+-- Призначення:
+--   Роль призначена для співробітників відділу аналітики та персоналу рецепції,
+--   яким необхідний доступ до бази даних виключно для ознайомлення з інформацією про клієнтів.
+-- Межі доступу:
+--   - Дозволено: навігація в схемі fitness_center_team4 та читання даних (SELECT) із таблиці members.
+--   - Заборонено: створення, редагування, видалення записів (INSERT, UPDATE, DELETE), 
+--     а також будь-які зміни структури бази даних (DDL-операції: CREATE, ALTER, DROP).
+-- ----------------------------------------------------------------
+CREATE ROLE member_reader;
+
+GRANT USAGE ON SCHEMA fitness_center_team4 TO member_reader;
+GRANT SELECT ON fitness_center_team4.members TO member_reader;
+
+
+-- ----------------------------------------------------------------
+-- Роль: member_manager
+-- Призначення:
+--   Роль призначена для операторів обліку та менеджерів фітнес-центру,
+--   відповідальних за поточне ведення бази даних (реєстрація нових клієнтів, оновлення контактів, видалення карток).
+-- Межі доступу:
+--   - Дозволено: повний спектр операцій маніпулювання даними (DML: SELECT, INSERT, UPDATE, DELETE) 
+--     у таблиці members, а також право використання числових послідовностей (SEQUENCES) для автоінкременту первинних ключів.
+--   - Заборонено: модифікація схеми бази даних (ALTER/DROP TABLE, зміна типів стовпців тощо).
+-- ----------------------------------------------------------------
+CREATE ROLE member_manager;
+
+GRANT USAGE ON SCHEMA fitness_center_team4 TO member_manager;
+GRANT SELECT, INSERT, UPDATE, DELETE ON fitness_center_team4.members TO member_manager;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA fitness_center_team4 TO member_manager;
+
+
+-- ================================================================
+-- 2. СТВОРЕННЯ КОРИСТУВАЧІВ ТА ПРИЗНАЧЕННЯ РОЛЕЙ (USERS & RBAC)
+-- ================================================================
+
+-- Створення облікових записів користувачів
+CREATE USER igor WITH PASSWORD 'QWE123';
+CREATE USER anna WITH PASSWORD 'ZXC123';
+
+-- Призначення прав користувачам через ролі:
+-- igor отримує мінімальний рівень доступу (тільки перегляд)
+GRANT member_reader TO igor;
+
+-- anna отримує рівень доступу для внесення та редагування записів
+GRANT member_manager TO anna;
+
+
+-- ================================================================
+-- 3. БЛОК ОЧИЩЕННЯ (DROP CLEANUP BLOCK - ЗАКОМЕНТОВАНО)
+-- ================================================================
+-- Використовується для безпечного скидання створених сутностей без конфліктів залежностей:
+--
+-- 1. Відкликання членства користувачів у ролях
+-- REVOKE member_reader FROM igor;
+-- REVOKE member_manager FROM anna;
+--
+-- 2. Відкликання привілеїв DML на таблиці
+-- REVOKE ALL PRIVILEGES ON TABLE fitness_center_team4.members FROM member_reader CASCADE;
+-- REVOKE ALL PRIVILEGES ON TABLE fitness_center_team4.members FROM member_manager CASCADE;
+--
+-- 3. Відкликання доступу до послідовностей
+-- REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA fitness_center_team4 FROM member_manager CASCADE;
+--
+-- 4. Відкликання права використання схеми
+-- REVOKE USAGE ON SCHEMA fitness_center_team4 FROM member_reader CASCADE;
+-- REVOKE USAGE ON SCHEMA fitness_center_team4 FROM member_manager CASCADE;
+--
+-- 5. Видалення користувачів та ролей
+-- DROP USER IF EXISTS igor;
+-- DROP USER IF EXISTS anna;
+-- DROP ROLE IF EXISTS member_reader;
+-- DROP ROLE IF EXISTS member_manager;
